@@ -1,0 +1,42 @@
+name:                scheme
+version:             0.1.0.0
+github:              "githubuser/mzaneri"
+license:             BSD3
+author:              "Michael Zaneri"
+maintainer:          "michaelzaneri@gmail.com"
+copyright:           "Michael Zaneri"
+
+extra-source-files:
+- README.md
+- ChangeLog.md
+
+description:         Please see the README on GitHub at <https://github.com/mzaneri/scheme#readme>
+
+dependencies:
+- base >= 4.7 && < 5
+- parsec
+
+library:
+  source-dirs: src
+
+executables:
+  scheme-exe:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - scheme
+
+tests:
+  scheme-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - scheme

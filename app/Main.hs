@@ -15,7 +15,7 @@ data LispVal = Atom String
             | DottedList [LispVal] LispVal
             | Number Integer
             | String String
-            | Bool Bool
+            | Bool Bool deriving Show
 
 parseString :: Parser LispVal
 parseString = do
@@ -41,7 +41,7 @@ parseExpr :: Parser LispVal
 parseExpr = parseAtom <|> parseString <|> parseNumber
 
 readExpr :: String -> String
-readExpr input = case parse (spaces >> symbol) "lisp" input of
+readExpr input = case parse parseExpr "lisp" input of
     Left err -> "Failed to match " ++ show err
     Right val -> "Found value " ++ show val
 

@@ -1,3 +1,3 @@
 # scheme
 
-Writing a Scheme in Haskell, chaning some bits to suit my own learning as I go.
+Writing a very basic Scheme in Haskell, changing some bits to suit my own learning as I go.

@@ -25,17 +25,17 @@ parseString = do
             return $ String x            
 
 parseAtom :: Parser LispVal
-parseAtom = do
-                first <- letter <|> symbol
-                rest <- many (letter <|> digit <|> symbol <|>)
-                let atom = first:rest
-                return $ case atom of
-                            "#t" -> Bool True
-                            "#f" -> Bool False
-                             _   -> Atom atom
+parseAtom = do 
+              first <- letter <|> symbol
+              rest <- many (letter <|> digit <|> symbol)
+              let atom = first:rest
+              return $ case atom of 
+                         "#t" -> Bool True
+                         "#f" -> Bool False
+                         _    -> Atom atom
 
 parseNumber :: Parser LispVal
-parseNumber :: liftM (Number . read) $ many1 digit
+parseNumber = liftM (Number . read) $ many1 digit
 
 parseExpr :: Parser LispVal
 parseExpr = parseAtom <|> parseString <|> parseNumber

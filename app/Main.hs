@@ -1,10 +1,13 @@
 {-#LANGUAGE BinaryLiterals #-}
 module Main where
 
-import Numeric 
+import Numeric
 import Text.ParserCombinators.Parsec hiding (spaces)
 import System.Environment
 import Control.Monad
+import Data.Char (digitToInt)
+import Data.List (foldl')
+
 
 symbol :: Parser Char
 symbol = oneOf "!$%&|*+-/:<=>?@^_~"
@@ -22,12 +25,10 @@ data LispVal = Atom String
             | String String
             | Bool Bool 
             | Character Char 
-            | Float Float deriving Show
+            | Float Double deriving Show
 
 parseList :: Parser LispVal
-parseList = do  lexeme $ char '('
-                x <- parseExpr `sepBy` spaces
-                lexeme $ char ')'
+parseList = do  x <- parseExpr `sepBy` spaces
                 return $ List x
 
 parseString :: Parser LispVal
@@ -51,6 +52,17 @@ parseAtom = lexeme $
                rest <- many (letter <|> digit <|> symbol)
                let atom = first:rest
                return $ Atom atom
+
+parseDottedList :: Parser LispVal
+parseDottedList = do head <- endBy parseExpr spaces
+                     tail <- char '.' >> spaces >> parseExpr
+                     return $ DottedList head tail
+
+parseQuoted :: Parser LispVal
+parseQuoted = do
+            char '\''
+            x <- parseExpr
+            return $ List [Atom "quote", x]
 
 parseCharacter :: Parser LispVal
 parseCharacter = do
@@ -93,11 +105,17 @@ parseOct :: Parser LispVal
 parseOct = lexeme $ do try $ string "#o"
                        stringNum <- many1 digit
                        return $ Number $ read ("0o" ++ stringNum)
-
+                       
+toDec :: String -> Integer
+toDec str = sum $ zipWith (*) powers (reverse nums)
+  where
+    nums = map (\c -> if c == '1' then 1 else 0) str
+    powers = map (2^) [0..]
+    
 parseBin :: Parser LispVal
 parseBin = lexeme $ do try $ string "#b"
                        stringNum <- many1 (oneOf "01")
-                       return $ Number $ read ("0b" ++ stringNum)
+                       return $ Number $ (toDec stringNum)
 
 parseFloat :: Parser LispVal
 parseFloat = lexeme $ do
@@ -107,13 +125,16 @@ parseFloat = lexeme $ do
                 return $ Float $ read (before ++ "." ++ after)
 
 parseNumber :: Parser LispVal
-parseNumber = try parseFloat <|> parseNormalNum <|> parseDecimal 
-    <|> parseHex <|> parseOct <|> parseBin
+parseNumber = try parseFloat <|> parseDecimal <|> try parseHex
+    <|> try parseOct <|> try parseBin <|> parseNormalNum
 
 parseExpr :: Parser LispVal
-parseExpr = spaces >> 
-    (parseList <|> parseAtom <|> parseString <|> try parseNumber
-     <|> try parseBool <|> try parseCharacter)
+parseExpr = parseAtom <|> parseString <|> parseNumber
+     <|> parseBool <|> parseCharacter <|> parseQuoted
+     <|> do char '('
+            x <- try parseList <|> parseDottedList
+            char ')'
+            return x
 
 readExpr :: String -> String
 readExpr input = case parse parseExpr "lisp" input of

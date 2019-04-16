@@ -1,4 +1,3 @@
-{-#LANGUAGE BinaryLiterals #-}
 module Main where
 
 import Numeric
@@ -27,10 +26,6 @@ data LispVal = Atom String
             | Character Char 
             | Float Double deriving Show
 
-parseList :: Parser LispVal
-parseList = do  x <- parseExpr `sepBy` spaces
-                return $ List x
-
 parseString :: Parser LispVal
 parseString = lexeme $
               do char '"'
@@ -53,10 +48,6 @@ parseAtom = lexeme $
                let atom = first:rest
                return $ Atom atom
 
-parseDottedList :: Parser LispVal
-parseDottedList = do head <- endBy parseExpr spaces
-                     tail <- char '.' >> spaces >> parseExpr
-                     return $ DottedList head tail
 
 parseQuoted :: Parser LispVal
 parseQuoted = do
@@ -111,7 +102,7 @@ toDec str = sum $ zipWith (*) powers (reverse nums)
   where
     nums = map (\c -> if c == '1' then 1 else 0) str
     powers = map (2^) [0..]
-    
+
 parseBin :: Parser LispVal
 parseBin = lexeme $ do try $ string "#b"
                        stringNum <- many1 (oneOf "01")
@@ -124,6 +115,17 @@ parseFloat = lexeme $ do
                 after <- many1 digit
                 return $ Float $ read (before ++ "." ++ after)
 
+
+parseList :: Parser LispVal
+parseList = do
+            x <- parseExpr `sepBy` spaces 
+            return $ List x
+                
+parseDottedList :: Parser LispVal
+parseDottedList = do head <- endBy parseExpr spaces
+                     tail <- char '.' >> spaces >> parseExpr
+                     return $ DottedList head tail   
+
 parseNumber :: Parser LispVal
 parseNumber = try parseFloat <|> parseDecimal <|> try parseHex
     <|> try parseOct <|> try parseBin <|> parseNormalNum
@@ -132,7 +134,7 @@ parseExpr :: Parser LispVal
 parseExpr = parseAtom <|> parseString <|> parseNumber
      <|> parseBool <|> parseCharacter <|> parseQuoted
      <|> do char '('
-            x <- try parseList <|> parseDottedList
+            x <- try parseDottedList <|> try parseList
             char ')'
             return x
 

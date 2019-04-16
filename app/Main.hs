@@ -21,7 +21,8 @@ data LispVal = Atom String
             | Number Integer
             | String String
             | Bool Bool 
-            | Character Char deriving Show
+            | Character Char 
+            | Float Float deriving Show
 
 parseList :: Parser LispVal
 parseList = do  lexeme $ char '('
@@ -96,10 +97,18 @@ parseOct = lexeme $ do try $ string "#o"
 parseBin :: Parser LispVal
 parseBin = lexeme $ do try $ string "#b"
                        stringNum <- many1 (oneOf "01")
-                       return $ Number $ read("0b" ++ stringNum)
+                       return $ Number $ read ("0b" ++ stringNum)
+
+parseFloat :: Parser LispVal
+parseFloat = lexeme $ do
+                before <- many1 digit
+                char '.'
+                after <- many1 digit
+                return $ Float $ read (before ++ "." ++ after)
 
 parseNumber :: Parser LispVal
-parseNumber = parseNormalNum <|> parseDecimal <|> parseHex <|> parseOct <|> parseBin
+parseNumber = try parseFloat <|> parseNormalNum <|> parseDecimal 
+    <|> parseHex <|> parseOct <|> parseBin
 
 parseExpr :: Parser LispVal
 parseExpr = spaces >> 

@@ -1,3 +1,4 @@
+{-#LANGUAGE BinaryLiterals #-}
 module Main where
 
 import Numeric 
@@ -19,7 +20,8 @@ data LispVal = Atom String
             | DottedList [LispVal] LispVal
             | Number Integer
             | String String
-            | Bool Bool deriving Show
+            | Bool Bool 
+            | Character Char deriving Show
 
 parseList :: Parser LispVal
 parseList = do  lexeme $ char '('
@@ -49,6 +51,18 @@ parseAtom = lexeme $
                let atom = first:rest
                return $ Atom atom
 
+parseCharacter :: Parser LispVal
+parseCharacter = do
+    try $ string "#\\"
+    val <- try (string "newLine" <|> string "space")
+        <|> do  x <- anyChar
+                notFollowedBy alphaNum
+                return [x]
+    return $ Character $ case val of
+            "space" -> ' '
+            "newLine" -> '\n'
+            otherwise -> (val !! 0)
+
 escapedChars :: Parser Char
 escapedChars = do char '\\' -- escaped backslash
                   x <- oneOf "\\\"nrt" -- backslash, quote, or space chars
@@ -58,20 +72,6 @@ escapedChars = do char '\\' -- escaped backslash
                     'n' -> '\n'
                     't' -> '\t'
                     'r' -> '\r'
-
-oct2dig :: (Eq a, Num a) => String -> a
-oct2dig x = fst $ readOct x !! 0
-
-hex2dig :: (Eq a, Num a) => String -> a
-hex2dig x = fst $ readHex x !! 0
-
-bin2dig :: [Char] -> Integer
-bin2dig = bin2dig' 0
-
-bin2dig' :: Num t => t -> [Char] -> t
-bin2dig' digint "" = digint
-bin2dig' digint (x:xs) = let old = 2 * digint + ( if x == '0' then 0 else 1) in 
-            bin2dig' old xs
 
 parseNormalNum :: Parser LispVal
 parseNormalNum = lexeme $ do
@@ -86,24 +86,25 @@ parseDecimal = lexeme $ do try $ string "#d"
 parseHex :: Parser LispVal
 parseHex = lexeme $ do try $ string "#x"
                        stringNum <- many1 digit
-                       return $ Number (hex2dig stringNum)
+                       return $ Number $ read ("0x" ++ stringNum)
 
 parseOct :: Parser LispVal
 parseOct = lexeme $ do try $ string "#o"
                        stringNum <- many1 digit
-                       return $ Number (oct2dig stringNum)
+                       return $ Number $ read ("0o" ++ stringNum)
 
 parseBin :: Parser LispVal
 parseBin = lexeme $ do try $ string "#b"
                        stringNum <- many1 (oneOf "01")
-                       return $ Number (bin2dig stringNum)
+                       return $ Number $ read("0b" ++ stringNum)
 
 parseNumber :: Parser LispVal
 parseNumber = parseNormalNum <|> parseDecimal <|> parseHex <|> parseOct <|> parseBin
 
 parseExpr :: Parser LispVal
 parseExpr = spaces >> 
-    (parseList <|> parseAtom <|> parseString <|> parseNumber <|> parseBool)
+    (parseList <|> parseAtom <|> parseString <|> try parseNumber
+     <|> try parseBool <|> try parseCharacter)
 
 readExpr :: String -> String
 readExpr input = case parse parseExpr "lisp" input of

@@ -4,9 +4,6 @@ import Numeric
 import Text.ParserCombinators.Parsec hiding (spaces)
 import System.Environment
 import Control.Monad
-import Data.Char (digitToInt)
-import Data.List (foldl')
-
 
 symbol :: Parser Char
 symbol = oneOf "!$%&|*+-/:<=>?@^_~"
@@ -115,12 +112,24 @@ parseFloat = lexeme $ do
                 after <- many1 digit
                 return $ Float $ read (before ++ "." ++ after)
 
-
 parseList :: Parser LispVal
 parseList = do
             x <- parseExpr `sepBy` spaces 
             return $ List x
-                
+
+parseQuasiQuoted :: Parser LispVal
+parseQuasiQuoted = do
+        char '`'
+        x <- parseExpr
+        return $ List [Atom "quasiquote", x]            
+
+parseUnQuote :: Parser LispVal
+parseUnQuote = do
+        char ','
+        x <- parseExpr
+        return $ List [Atom "unquote", x]
+       
+
 parseDottedList :: Parser LispVal
 parseDottedList = do head <- endBy parseExpr spaces
                      tail <- char '.' >> spaces >> parseExpr
@@ -129,6 +138,7 @@ parseDottedList = do head <- endBy parseExpr spaces
 parseNumber :: Parser LispVal
 parseNumber = try parseFloat <|> parseDecimal <|> try parseHex
     <|> try parseOct <|> try parseBin <|> parseNormalNum
+    <|> parseQuasiQuoted <|> parseUnQuote
 
 parseExpr :: Parser LispVal
 parseExpr = parseAtom <|> parseString <|> parseNumber
@@ -142,6 +152,7 @@ readExpr :: String -> String
 readExpr input = case parse parseExpr "lisp" input of
     Left err -> "Failed to match " ++ show err
     Right val -> "Found value " ++ show val
+
 
 main :: IO ()
 main = do

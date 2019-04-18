@@ -31,7 +31,7 @@ data LispVal = Atom String
             | String String
             | Bool Bool 
             | Character Char 
-            | Float Double deriving Show
+            | Float Double deriving (Show, Eq)
 
 showError :: LispError -> String
 showError (UnboundVar message varname)  = message ++ ": " ++ varname
@@ -208,7 +208,9 @@ primitives = [("+", numericBinop (+)),
                   ("cons", cons),
                   ("eq?", eqv),
                   ("eqv?", eqv),
-                  ("equal?", equal)]
+                  ("equal?", equal),
+                  ("string-length", stringLen),
+                  ("string-ref", stringRef)]
 
 numBoolBinop  = boolBinop unpackNum
 strBoolBinop  = boolBinop unpackStr
@@ -283,6 +285,20 @@ string2symbol :: LispVal -> LispVal
 string2symbol (String s) = Atom s
 string2symbol _          = Atom ""
 
+stringLen :: [LispVal] -> ThrowsError LispVal
+stringLen [(String s)] = Right $ Number $ fromIntegral $ length s
+stringLen [notString]  = throwError $ TypeMismatch "string" notString
+stringLen badArgList   = throwError $ NumArgs 1 badArgList
+
+stringRef :: [LispVal] -> ThrowsError LispVal
+stringRef [(String s), (Number k)]
+    | length s < k' + 1 = throwError $ Default "Out of bound error"
+    | otherwise         = Right $ String $ [s !! k']
+    where k' = fromIntegral k
+stringRef [(String s), notNum] = throwError $ TypeMismatch "number" notNum
+stringRef [notString, _]       = throwError $ TypeMismatch "string" notString
+stringRef badArgList           = throwError $ NumArgs 2 badArgList
+
 car :: [LispVal] -> ThrowsError LispVal
 car [List (x : xs)]         = return x
 car [DottedList (x : xs) _] = return x
@@ -335,8 +351,22 @@ eval (List [Atom "if", pred, conseq, alt]) =
        case result of
             Bool False -> eval alt
             otherwise  -> eval conseq
+eval form@(List (Atom "case" : key : clauses)) =
+    if null clauses
+    then throwError $ BadSpecialForm "no true clause in case expression: " form
+    else case head clauses of
+        List (Atom "else" : exprs) -> mapM eval exprs >>= return . last
+        List ((List datums) : exprs) -> do
+            result <- eval key
+            equality <- mapM (\x -> eqv [result, x]) datums
+            if Bool True `elem` equality
+                then mapM eval exprs >>= return . last
+                else eval $ List (Atom "case" : key : tail clauses)
+        _                     -> throwError $ BadSpecialForm "ill-formed case expression: " form
 eval (List (Atom func : args)) = mapM eval args >>= apply func
 eval badForm = throwError $ BadSpecialForm "Unrecognized special form" badForm
+        
+
 
 apply :: String -> [LispVal] -> ThrowsError LispVal
 apply func args = maybe (throwError $ NotFunction "Unrecognized primitive function args" func)
